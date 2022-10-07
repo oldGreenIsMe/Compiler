@@ -1,49 +1,18 @@
 import java.io.*;
 import java.util.HashMap;
+import java.util.LinkedList;
 
 public class LexicalAnalysis {
-    public static String testFileName;
-    public static String outputName;
-    public static File testFile;
-    public static PushbackInputStream reader;
-    public static FileWriter writer;
-    public static int alpha;
-    public static char alphabet;
-    public static int lineNum = 1;
+
     public static int comment_status = 0;// 0 is normal, 1 is the single comment, 2 is the many comment
-    public static String[] SELF_DEFINED_TOKEN = {"IDENFR","INTCON","STRCON"};
+    public static String[] SELF_DEFINED_TOKEN = {"IDENFR", "INTCON", "STRCON"};
     public static HashMap<String, String> DEFINEDED_TOKEN;
-    public static int getAlpha(){
+    public static LinkedList<TokenNode> tokenList;
+    public static void initLexical() {
         try {
-            alpha = reader.read();
-            alphabet = (char)alpha;
-        }catch(IOException e){
-            e.printStackTrace();
-        }
-        return alpha;
-    }
-    public static void ungetsym(){
-        try{
-            reader.unread(alpha);
-        }catch(IOException e){
-            e.printStackTrace();
-        }
-    }
-    public static void write(String string){
-        try{
-            writer.write(string);
-            writer.write('\n');
-            writer.flush();
-        }catch(IOException e){
-            e.printStackTrace();
-        }
-    }
-    public static void initLexical(){
-        try {
-            testFileName = new String("testfile.txt");
-            outputName = new String("output.txt");
+            tokenList = new LinkedList<>();
             DEFINEDED_TOKEN = new HashMap<>();
-            DEFINEDED_TOKEN.put("main","MAINTK");
+            DEFINEDED_TOKEN.put("main", "MAINTK");
             DEFINEDED_TOKEN.put("const", "CONSTTK");
             DEFINEDED_TOKEN.put("int", "INTTK");
             DEFINEDED_TOKEN.put("break", "BREAKTK");
@@ -78,104 +47,110 @@ public class LexicalAnalysis {
             DEFINEDED_TOKEN.put("]", "RBRACK");
             DEFINEDED_TOKEN.put("{", "LBRACE");
             DEFINEDED_TOKEN.put("}", "RBRACE");
-            testFile = new File(testFileName);
-            reader = new PushbackInputStream(new FileInputStream(testFile));
-            writer = new FileWriter(outputName,false);
-            writer.write("");
-            writer.flush();
-            writer.close();
-            writer = new FileWriter(outputName, true);
-        }catch(Exception e){
+
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static void judgeIdentifier(){
+    public static void addToList(String tokenType, String tokenName){
+        TokenNode tokenNode = new TokenNode(tokenType, tokenName);
+        tokenList.add(tokenNode);
+    }
+
+    public static void addToList(String tokenType, int num){
+        TokenNode tokenNode = new TokenNode(tokenType, ""+num);
+        tokenList.add(tokenNode);
+    }
+
+    public static void judgeIdentifier() {
         String tmpString = new String("");
-        while(alpha != -1 && (Character.isLetter(alphabet) || Character.isDigit(alphabet) || alphabet=='_')){
-            tmpString += alphabet;
-            getAlpha();
+        while (IOtools.alpha != -1 && (Character.isLetter(IOtools.alphabet) || Character.isDigit(IOtools.alphabet) || IOtools.alphabet == '_')) {
+            tmpString += IOtools.alphabet;
+            IOtools.getAlpha();
         }
 
-        if(DEFINEDED_TOKEN.containsKey(tmpString)){
-            write(DEFINEDED_TOKEN.get(tmpString)+' '+tmpString);
-        }else{
-            write(SELF_DEFINED_TOKEN[0]+' '+tmpString);
+        if (DEFINEDED_TOKEN.containsKey(tmpString)) {
+            addToList(DEFINEDED_TOKEN.get(tmpString), tmpString);
+        } else {
+            addToList(SELF_DEFINED_TOKEN[0], tmpString);
         }
     }
 
-    public static void judgeIntConst(){
+    public static void judgeIntConst() {
         int tmpInt = 0;
-        while(alpha !=-1 && Character.isDigit(alphabet)){
-            tmpInt = tmpInt*10+(alphabet-'0');
-            getAlpha();
+        while (IOtools.alpha != -1 && Character.isDigit(IOtools.alphabet)) {
+            tmpInt = tmpInt * 10 + (IOtools.alphabet - '0');
+            IOtools.getAlpha();
         }
-        write(SELF_DEFINED_TOKEN[1]+' '+tmpInt);
+
+        addToList(SELF_DEFINED_TOKEN[1], tmpInt);
     }
 
-    public static void judgeSimpleItem(){
+    public static void judgeSimpleItem() {
         String tmpString = new String("");
-        tmpString += alphabet;
-        if(alphabet == '<' || alphabet == '>' || alphabet == '!' || alphabet == '=' || alphabet == '&' || alphabet == '|'){
+        tmpString += IOtools.alphabet;
+        if (IOtools.alphabet == '<' || IOtools.alphabet == '>' || IOtools.alphabet == '!' || IOtools.alphabet == '=' || IOtools.alphabet == '&' || IOtools.alphabet == '|') {
             // to see if the symbol can cooperate with the symbol behind
-            getAlpha();
-            tmpString += alphabet;
-            if(DEFINEDED_TOKEN.containsKey(tmpString)){
-                write(DEFINEDED_TOKEN.get(tmpString)+' '+tmpString);
-                getAlpha();
-            }else{
-                tmpString = tmpString.substring(0,1);
-                write(DEFINEDED_TOKEN.get(tmpString)+' '+tmpString);
+            IOtools.getAlpha();
+            tmpString += IOtools.alphabet;
+            if (DEFINEDED_TOKEN.containsKey(tmpString)) {
+                addToList(DEFINEDED_TOKEN.get(tmpString),tmpString);
+                IOtools.getAlpha();
+            } else {
+                tmpString = tmpString.substring(0, 1);
+                addToList(DEFINEDED_TOKEN.get(tmpString), tmpString);
             }
-        }
-        else{
+        } else {
             // see the symbol that can not cooperate with the symbol behind
-            write(DEFINEDED_TOKEN.get(tmpString)+' '+tmpString);
-            getAlpha();
+            addToList(DEFINEDED_TOKEN.get(tmpString), tmpString);
+            IOtools.getAlpha();
         }
     }
-    public static void judgeFormatString(){
+
+    public static void judgeFormatString() {
         String tmpString = new String("");
-        do{
-            tmpString += alphabet;
-            getAlpha();
-        }while(alpha != -1 && alphabet != '"');
+        do {
+            tmpString += IOtools.alphabet;
+            IOtools.getAlpha();
+        } while (IOtools.alpha != -1 && IOtools.alphabet != '"');
         tmpString += '"';
-        write(SELF_DEFINED_TOKEN[2]+' '+tmpString);
-        getAlpha();
+        addToList(SELF_DEFINED_TOKEN[2], tmpString);
+        IOtools.getAlpha();
     }
-    public static void analysis(){
-        initLexical();
-        getAlpha();
-        while(alpha != -1){
+
+    public static void analysis() {
+        IOtools.getAlpha();
+        int flag = 0;
+        while(IOtools.alpha != -1){
             if(comment_status == 0) {
-                if (alphabet == '\t' || alphabet == '\r' || alphabet == '\n' || alphabet == ' ') {
+                if (IOtools.alphabet == '\t' || IOtools.alphabet == '\r' || IOtools.alphabet == '\n' || IOtools.alphabet == ' ') {
                     // back to start condition
-                    if (alphabet == '\n')
-                        lineNum++;
-                    getAlpha();
-                } else if (Character.isLetter(alphabet) || alphabet == '_') {
+                    if (IOtools.alphabet == '\n')
+                        IOtools.lineNum++;
+                    IOtools.getAlpha();
+                } else if (Character.isLetter(IOtools.alphabet) || IOtools.alphabet == '_') {
                     // identifier judge head: letter or '_'
                     judgeIdentifier();
-                } else if (Character.isDigit(alphabet)) {
+                } else if (Character.isDigit(IOtools.alphabet)) {
                     // intConst judge head: number
                     judgeIntConst();
-                } else if (alphabet == '"') {
+                } else if (IOtools.alphabet == '"') {
                     // formatString judge head: "
                     judgeFormatString();
-                } else if(alphabet == '/'){
+                } else if(IOtools.alphabet == '/'){
                     // judge the special symbol / to see if it is comment
-                    char forwardSymbol = alphabet;
-                    getAlpha();
-                    if(alphabet == '/'){
+                    char forwardSymbol = IOtools.alphabet;
+                    IOtools.getAlpha();
+                    if(IOtools.alphabet == '/'){
                         comment_status = 1;
-                        getAlpha();
-                    }else if(alphabet == '*'){
+                        IOtools.getAlpha();
+                    }else if(IOtools.alphabet == '*'){
                         comment_status = 2;
-                        getAlpha();
+                        IOtools.getAlpha();
                     }
                     else{
-                        write(DEFINEDED_TOKEN.get("/")+' '+forwardSymbol);
+                        addToList(DEFINEDED_TOKEN.get("/"), ""+forwardSymbol);
                     }
                 }
                 else {
@@ -183,27 +158,30 @@ public class LexicalAnalysis {
                 }
             }else if(comment_status == 1){
                 // when see the symbol '\n',return to the normal status
-                if(alphabet=='\n'){
+                if(IOtools.alphabet=='\n'){
                     comment_status = 0;
                 }
-                getAlpha();
+                IOtools.getAlpha();
             }else{
                 // when see the symbol '*' and symbol '/'behind, return to the normal status
-                if(alphabet == '*'){
-                    getAlpha();
-                    if(alphabet == '/'){
+                if(IOtools.alphabet == '*'){
+                    IOtools.getAlpha();
+                    if(IOtools.alphabet == '/'){
                         comment_status = 0;
-                        getAlpha();
+                        IOtools.getAlpha();
                     }
                 }else{
-                    getAlpha();
+                    IOtools.getAlpha();
                 }
             }
         }
+    }
+
+    public static void finishReadAndWrite() {
         try {
-            reader.close();
-            writer.close();
-        }catch (IOException e){
+            IOtools.reader.close();
+            IOtools.writer.close();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
